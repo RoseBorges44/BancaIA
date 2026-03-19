@@ -1,0 +1,17 @@
+{
+  "name": "BancaIA — Corretor Inteligente de Redações",
+  "short_name": "BancaIA",
+  "description": "Banca Virtual multi-agente para correção de redações ENEM",
+  "start_url": "./BancaIA.html",
+  "display": "standalone",
+  "background_color": "#0f0f0f",
+  "theme_color": "#d4a853",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230f0f0f'/><text x='50' y='62' font-size='40' font-family='Georgia,serif' font-weight='bold' text-anchor='middle' fill='%23d4a853'>BA</text></svg>",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BancaIA — Corretor Inteligente de Redações</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#d4a853">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+/* ── Reset & Base ───────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0f0f0f;--bg2:#181818;--bg3:#222;--bg4:#2a2a2a;
+  --fg:#e8e0d4;--fg2:#b0a898;--fg3:#706858;
+  --amber:#d4a853;--amber2:#b8922e;--amber-glow:rgba(212,168,83,.15);
+  --green:#4ade80;--green2:#22c55e;
+  --red:#f87171;--red2:#ef4444;
+  --blue:#60a5fa;
+  --serif:'Fraunces',Georgia,serif;
+  --sans:'DM Sans',system-ui,sans-serif;
+  --radius:12px;--radius-sm:8px;
+}
+html{font-size:16px;background:var(--bg);color:var(--fg)}
+body{font-family:var(--sans);min-height:100vh;display:flex;flex-direction:column;align-items:center}
+h1,h2,h3{font-family:var(--serif);font-weight:600;color:var(--fg)}
+a{color:var(--amber)}
+button{font-family:var(--sans);cursor:pointer;border:none;outline:none}
+input{font-family:var(--sans)}
+
+/* ── Layout ─────────────────────────────────────────────────── */
+.container{width:100%;max-width:800px;padding:24px 20px}
+.screen{display:none;animation:fadeUp .5s ease}
+.screen.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── Header ─────────────────────────────────────────────────── */
+header{text-align:center;padding:40px 0 20px}
+header h1{font-size:2.4rem;letter-spacing:-.02em}
+header h1 span{color:var(--amber)}
+header p{color:var(--fg2);margin-top:8px;font-size:.95rem}
+
+/* ── API Key bar ────────────────────────────────────────────── */
+.api-bar{display:flex;gap:8px;margin-bottom:24px}
+.api-bar input{flex:1;padding:10px 14px;border-radius:var(--radius-sm);border:1px solid var(--bg4);background:var(--bg2);color:var(--fg);font-size:.9rem}
+.api-bar input::placeholder{color:var(--fg3)}
+
+/* ── Tela 1: Upload ─────────────────────────────────────────── */
+.dropzone{
+  border:2px dashed var(--bg4);border-radius:var(--radius);
+  padding:60px 24px;text-align:center;transition:border-color .2s,background .2s;
+  cursor:pointer;position:relative;
+}
+.dropzone:hover,.dropzone.dragover{border-color:var(--amber);background:var(--amber-glow)}
+.dropzone p{color:var(--fg2);margin-top:12px}
+.dropzone .icon{font-size:3rem;color:var(--fg3)}
+.preview-wrap{margin-top:20px;text-align:center;display:none}
+.preview-wrap img{max-width:100%;max-height:360px;border-radius:var(--radius-sm);border:1px solid var(--bg4)}
+.preview-wrap .file-name{color:var(--fg2);font-size:.85rem;margin-top:8px}
+.btn-primary{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:14px 32px;border-radius:var(--radius-sm);
+  background:var(--amber);color:#0f0f0f;font-weight:700;font-size:1rem;
+  margin-top:20px;transition:background .2s;
+}
+.btn-primary:hover{background:var(--amber2)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed}
+.btn-secondary{
+  padding:10px 20px;border-radius:var(--radius-sm);
+  background:var(--bg3);color:var(--fg);font-weight:600;font-size:.9rem;
+  margin-top:12px;transition:background .2s;
+}
+.btn-secondary:hover{background:var(--bg4)}
+
+/* ── Tela 2: Processing ─────────────────────────────────────── */
+.proc-title{text-align:center;font-size:1.3rem;margin-bottom:28px;color:var(--amber)}
+.agents-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:16px;margin-bottom:28px}
+.agent-card{
+  background:var(--bg2);border:1px solid var(--bg4);border-radius:var(--radius-sm);
+  padding:18px 12px;text-align:center;transition:border-color .4s,box-shadow .4s;
+}
+.agent-card.lit{border-color:var(--amber);box-shadow:0 0 18px var(--amber-glow)}
+.agent-card .label{font-size:.75rem;color:var(--fg3);margin-top:4px;transition:color .4s}
+.agent-card.lit .label{color:var(--amber)}
+.agent-card .code{font-family:var(--serif);font-size:1.3rem;color:var(--fg3);transition:color .4s}
+.agent-card.lit .code{color:var(--amber)}
+.proc-log{
+  background:var(--bg2);border:1px solid var(--bg4);border-radius:var(--radius-sm);
+  padding:16px;font-size:.82rem;color:var(--fg2);
+  max-height:200px;overflow-y:auto;font-family:'Courier New',monospace;line-height:1.6;
+}
+.proc-log .entry{opacity:0;animation:fadeIn .3s forwards}
+@keyframes fadeIn{to{opacity:1}}
+
+/* ── Tela 3: Resultados ─────────────────────────────────────── */
+.nota-total-box{
+  text-align:center;padding:32px;border-radius:var(--radius);
+  background:var(--bg2);border:1px solid var(--bg4);margin-bottom:24px;
+}
+.nota-total-box .valor{font-family:var(--serif);font-size:4rem;font-weight:700;line-height:1}
+.nota-total-box .de{font-size:1.2rem;color:var(--fg3);margin-left:4px}
+.nota-total-box .tema{color:var(--fg2);margin-top:8px;font-size:.95rem}
+.nota-alta{color:var(--green)}
+.nota-media{color:var(--amber)}
+.nota-baixa{color:var(--red)}
+
+/* Barras de competência */
+.comp-list{display:flex;flex-direction:column;gap:14px;margin-bottom:32px}
+.comp-row{background:var(--bg2);border-radius:var(--radius-sm);padding:14px 16px}
+.comp-header{display:flex;justify-content:space-between;margin-bottom:6px}
+.comp-header .name{font-weight:600;font-size:.9rem}
+.comp-header .score{font-family:var(--serif);font-weight:700;font-size:1rem}
+.comp-bar{height:8px;border-radius:4px;background:var(--bg4);overflow:hidden}
+.comp-bar .fill{height:100%;border-radius:4px;transition:width 1s ease;width:0}
+.comp-reason{color:var(--fg2);font-size:.82rem;margin-top:8px;line-height:1.5}
+
+/* ── Radar Chart ────────────────────────────────────────────── */
+.radar-section{margin-bottom:32px}
+.radar-section h3{text-align:center;margin-bottom:16px;font-size:1.1rem;color:var(--fg2)}
+.radar-wrap{display:flex;justify-content:center}
+.radar-wrap svg{max-width:400px;width:100%}
+.radar-label{font-family:var(--sans);font-size:11px;fill:var(--fg2);text-anchor:middle;dominant-baseline:central}
+.radar-value-label{font-family:var(--serif);font-size:12px;fill:var(--amber);text-anchor:middle;dominant-baseline:central;font-weight:700}
+.radar-grid{fill:none;stroke:var(--bg4);stroke-width:.8}
+.radar-axis{stroke:var(--bg4);stroke-width:.5}
+.radar-polygon{fill:rgba(212,168,83,.18);stroke:var(--amber);stroke-width:2;stroke-linejoin:round;transition:opacity .5s}
+.radar-dot{fill:var(--amber);r:4;transition:opacity .5s}
+
+/* ── Sections ───────────────────────────────────────────────── */
+.section-card{
+  background:var(--bg2);border:1px solid var(--bg4);border-radius:var(--radius);
+  padding:20px;margin-bottom:20px;
+}
+.section-card h3{font-size:1rem;margin-bottom:12px;color:var(--amber)}
+.section-card p,.section-card li{color:var(--fg2);font-size:.9rem;line-height:1.6}
+.section-card ul{list-style:none;padding:0}
+.section-card ul li{padding:6px 0;padding-left:20px;position:relative}
+.section-card ul li::before{content:"";position:absolute;left:0;top:14px;width:8px;height:8px;border-radius:50%;background:var(--amber)}
+.divergencia-alert{
+  background:rgba(248,113,113,.08);border:1px solid var(--red);border-radius:var(--radius-sm);
+  padding:16px;margin-bottom:20px;
+}
+.divergencia-alert h3{color:var(--red)}
+.confianca-bar{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.confianca-bar .bar{flex:1;height:6px;border-radius:3px;background:var(--bg4);overflow:hidden}
+.confianca-bar .bar .fill{height:100%;border-radius:3px;background:var(--green)}
+.confianca-bar .pct{font-size:.85rem;color:var(--fg2);min-width:42px;text-align:right}
+.transcricao-text{
+  white-space:pre-wrap;font-size:.88rem;line-height:1.7;color:var(--fg);
+  max-height:300px;overflow-y:auto;padding:12px;background:var(--bg);border-radius:var(--radius-sm);
+}
+.fingerprint-chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:6px 12px;border-radius:20px;background:var(--bg4);color:var(--fg2);font-size:.82rem}
+.btn-nova{text-align:center;margin-top:32px;padding-bottom:40px}
+
+/* ── Header Nav ────────────────────────────────────────────── */
+.header-nav{display:flex;justify-content:center;gap:8px;margin-top:16px}
+.nav-btn{
+  padding:8px 20px;border-radius:20px;font-size:.85rem;font-weight:600;
+  background:var(--bg3);color:var(--fg3);transition:all .2s;
+}
+.nav-btn:hover{background:var(--bg4);color:var(--fg2)}
+.nav-btn.active{background:var(--amber);color:#0f0f0f}
+
+/* ── Tela 4: Dashboard do Professor ─────────────────────────── */
+.dash-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+.dash-stat{
+  background:var(--bg2);border:1px solid var(--bg4);border-radius:var(--radius-sm);
+  padding:16px;text-align:center;
+}
+.dash-stat .stat-val{font-family:var(--serif);font-size:1.8rem;font-weight:700;color:var(--amber)}
+.dash-stat .stat-label{font-size:.78rem;color:var(--fg3);margin-top:4px}
+
+.dash-table{width:100%;border-collapse:collapse;margin-bottom:24px}
+.dash-table th{
+  text-align:left;padding:10px 12px;font-size:.78rem;color:var(--fg3);
+  text-transform:uppercase;letter-spacing:.05em;border-bottom:1px solid var(--bg4);
+}
+.dash-table td{padding:12px;border-bottom:1px solid var(--bg3);font-size:.9rem;vertical-align:top}
+.dash-table tr{cursor:pointer;transition:background .15s}
+.dash-table tr:hover td{background:var(--bg2)}
+.dash-table .aluno-nome{font-weight:600;color:var(--fg)}
+.dash-table .nota-badge{
+  display:inline-block;padding:2px 10px;border-radius:10px;font-size:.82rem;font-weight:700;
+  font-family:var(--serif);
+}
+.evolucao-spark{display:inline-flex;align-items:flex-end;gap:2px;height:24px;vertical-align:middle}
+.evolucao-spark .bar-spark{width:6px;border-radius:2px 2px 0 0;background:var(--amber);transition:height .4s ease}
+.aluno-detail{
+  display:none;animation:fadeUp .3s ease;
+}
+.aluno-detail.open{display:table-row}
+.aluno-detail td{padding:16px 12px;background:var(--bg2);border-bottom:1px solid var(--bg4)}
+.detail-inner{display:flex;flex-direction:column;gap:12px}
+.detail-inner .mini-radar-wrap{display:flex;justify-content:center}
+.detail-inner .mini-radar-wrap svg{max-width:260px;width:100%}
+.detail-fingerprints{display:flex;flex-wrap:wrap;gap:6px}
+.detail-fingerprints .chip{font-size:.78rem;padding:4px 10px}
+.detail-redacoes{font-size:.82rem;color:var(--fg2);line-height:1.6}
+.detail-redacoes .rd-row{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--bg3)}
+.fila-revisao{margin-top:8px}
+.fila-item{
+  display:flex;justify-content:space-between;align-items:center;
+  padding:12px 16px;background:var(--bg2);border:1px solid var(--bg4);
+  border-radius:var(--radius-sm);margin-bottom:8px;
+}
+.fila-item .fila-aluno{font-weight:600}
+.fila-item .fila-motivo{font-size:.82rem;color:var(--fg2);flex:1;margin:0 16px}
+.fila-badge{
+  padding:4px 12px;border-radius:10px;font-size:.78rem;font-weight:600;
+  background:rgba(248,113,113,.12);color:var(--red);white-space:nowrap;
+}
+
+/* ── Radar Legend ───────────────────────────────────────────── */
+.radar-legend{display:flex;justify-content:center;gap:24px;margin-top:12px}
+.radar-legend-item{display:flex;align-items:center;gap:6px;font-size:.82rem;color:var(--fg2)}
+.radar-legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.radar-legend-line{width:22px;height:0;border-top:2px dashed var(--blue);flex-shrink:0}
+
+/* ── Side-by-side comparison ──────────────────────────────── */
+.side-by-side{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.side-col{background:var(--bg);border-radius:var(--radius-sm);padding:16px;border:1px solid var(--bg4)}
+.side-col.winner{border-color:var(--green)}
+.side-col h4{font-family:var(--serif);font-size:.95rem;margin-bottom:8px}
+.side-col .side-metric{font-size:.82rem;color:var(--fg2);margin-bottom:12px}
+.side-col .side-metric span{font-weight:700}
+.side-col .side-text{font-size:.82rem;line-height:1.6;color:var(--fg2);white-space:pre-wrap}
+.side-col .side-text .err{color:var(--red);text-decoration:underline wavy var(--red)}
+
+/* ── Print stylesheet ─────────────────────────────────────── */
+@media print{
+  *{background:white!important;color:black!important;box-shadow:none!important;border-color:#ccc!important}
+  header,.api-bar,.header-nav,.btn-nova,#radarSection,.divergencia-alert[style*="display:none"]{display:none!important}
+  body{min-height:auto;display:block}
+  .container{max-width:100%;padding:0}
+  .screen{animation:none!important}
+  .section-card{break-inside:avoid;page-break-inside:avoid}
+  .nota-total-box .valor,.comp-header .score{color:#333!important}
+  .comp-bar .fill{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  #secSideBySide{break-inside:avoid;page-break-inside:avoid}
+  body::before{content:"BancaIA — Parecer de Correcao";display:block;text-align:center;font-size:1.4rem;font-weight:700;padding:16px 0 24px;font-family:serif}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<!-- ══════════ Header ══════════ -->
+<header>
+  <h1>Banca<span>IA</span></h1>
+  <p>Corretor inteligente de redações — Banca Virtual multi-agente</p>
+  <nav class="header-nav">
+    <button class="nav-btn active" data-nav="app" id="navApp">Corrigir Redacao</button>
+    <button class="nav-btn" data-nav="dashboard" id="navDash">Dashboard Professor</button>
+  </nav>
+</header>
+
+<!-- API Key -->
+<div class="api-bar">
+  <input type="password" id="apiKey" placeholder="Cole sua GEMINI_API_KEY aqui">
+</div>
+
+<!-- ══════════ Tela 1: Upload ══════════ -->
+<div id="tela-upload" class="screen active">
+  <div class="dropzone" id="dropzone">
+    <div class="icon">&#128196;</div>
+    <p><strong>Arraste a imagem da redação</strong> ou clique para selecionar</p>
+    <p style="font-size:.82rem;color:var(--fg3);margin-top:4px">JPG, PNG ou WebP</p>
+    <input type="file" id="fileInput" accept="image/*" hidden>
+  </div>
+  <div class="preview-wrap" id="previewWrap">
+    <img id="previewImg" alt="Preview">
+    <div class="file-name" id="fileName"></div>
+  </div>
+  <div style="text-align:center">
+    <button class="btn-primary" id="btnEnviar" disabled>Enviar para a Banca</button>
+  </div>
+</div>
+
+<!-- ══════════ Tela 2: Processing ══════════ -->
+<div id="tela-processing" class="screen">
+  <p class="proc-title">Banca em deliberação...</p>
+  <div class="agents-grid">
+    <div class="agent-card" data-agent="transcritor"><div class="code">T</div><div class="label">Transcritor</div></div>
+    <div class="agent-card" data-agent="C1"><div class="code">C1</div><div class="label">Norma culta</div></div>
+    <div class="agent-card" data-agent="C2"><div class="code">C2</div><div class="label">Proposta</div></div>
+    <div class="agent-card" data-agent="C3"><div class="code">C3</div><div class="label">Argumentacao</div></div>
+    <div class="agent-card" data-agent="C4"><div class="code">C4</div><div class="label">Coesao</div></div>
+    <div class="agent-card" data-agent="C5"><div class="code">C5</div><div class="label">Intervencao</div></div>
+    <div class="agent-card" data-agent="arbitro"><div class="code">A</div><div class="label">Arbitro</div></div>
+  </div>
+  <div class="proc-log" id="procLog"></div>
+</div>
+
+<!-- ══════════ Tela 3: Resultados ══════════ -->
+<div id="tela-resultados" class="screen">
+
+  <!-- Nota total -->
+  <div class="nota-total-box" id="notaTotalBox">
+    <div><span class="valor" id="notaValor">0</span><span class="de">/ 1000</span></div>
+    <div class="tema" id="temaDetectado"></div>
+  </div>
+
+  <!-- Barras de competência -->
+  <div class="comp-list" id="compList"></div>
+
+  <!-- RADAR CHART -->
+  <div class="radar-section" id="radarSection">
+    <h3>Perfil de Competencias</h3>
+    <div class="radar-wrap">
+      <svg id="radarSvg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+    <div class="radar-legend">
+      <span class="radar-legend-item"><span class="radar-legend-dot" style="background:var(--amber)"></span>Aluno</span>
+      <span class="radar-legend-item"><span class="radar-legend-line"></span>Media da turma</span>
+    </div>
+  </div>
+
+  <!-- Divergencia -->
+  <div class="divergencia-alert" id="divAlert" style="display:none">
+    <h3>Divergencia detectada</h3>
+    <p id="divMotivo"></p>
+    <p id="divParecer" style="margin-top:8px"></p>
+  </div>
+
+  <!-- Transcricao -->
+  <div class="section-card" id="secTranscricao">
+    <h3>Transcricao</h3>
+    <div class="confianca-bar">
+      <span style="font-size:.85rem;color:var(--fg2)">Confianca:</span>
+      <div class="bar"><div class="fill" id="confiancaFill"></div></div>
+      <span class="pct" id="confiancaPct"></span>
+    </div>
+    <div class="transcricao-text" id="transcricaoText"></div>
+  </div>
+
+  <!-- Feedback socratico -->
+  <div class="section-card" id="secSocratico">
+    <h3>Perguntas Socraticas</h3>
+    <ul id="listaSocratico"></ul>
+  </div>
+
+  <!-- Plano de estudos -->
+  <div class="section-card" id="secPlano">
+    <h3>Plano de Estudos</h3>
+    <ul id="listaPlano"></ul>
+  </div>
+
+  <!-- Fingerprint -->
+  <div class="section-card" id="secFingerprint">
+    <h3>Fingerprint de Erros</h3>
+    <div class="fingerprint-chips" id="fingerprintChips"></div>
+  </div>
+
+  <!-- Side-by-side comparison (hidden by default) -->
+  <div style="text-align:center;margin-bottom:16px">
+    <button class="btn-secondary" id="btnSideBySide" onclick="document.getElementById('secSideBySide').style.display='block';this.style.display='none';">Ver comparacao zero-shot vs few-shot</button>
+  </div>
+  <div class="section-card" id="secSideBySide" style="display:none">
+    <h3>Comparacao: Zero-shot vs Few-shot</h3>
+    <div class="side-by-side">
+      <div class="side-col">
+        <h4>Zero-shot</h4>
+        <div class="side-metric">CER: <span>~8.2%</span></div>
+        <div class="side-text">O <span class="err">desemvolvimento</span> da tecnologia trouxe <span class="err">muitaz</span> mudancas para a sociedade. <span class="err">Oje</span> em dia, as pessoas <span class="err">nao consegue</span> viver sem o celular e <span class="err">as rede</span> sociais.
+
+A <span class="err">privacidadde</span> dos dados e um tema <span class="err">inportante</span> que precisa ser <span class="err">dicutido</span> pela sociedade brasileira.</div>
+      </div>
+      <div class="side-col winner">
+        <h4>Few-shot</h4>
+        <div class="side-metric">CER: <span>~3.5%</span></div>
+        <div class="side-text">O desenvolvimento da tecnologia trouxe muitas mudancas para a sociedade. Hoje em dia, as pessoas nao conseguem viver sem o celular e as redes sociais.
+
+A privacidade dos dados e um tema importante que precisa ser discutido pela sociedade brasileira.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="btn-nova">
+    <button class="btn-secondary" id="btnPdf" onclick="window.print()" style="margin-right:12px">Baixar parecer em PDF</button>
+    <button class="btn-secondary" id="btnNova">Nova redacao</button>
+  </div>
+</div>
+
+<!-- ══════════ Tela 4: Dashboard do Professor ══════════ -->
+<div id="tela-dashboard" class="screen">
+  <h2 style="margin-bottom:20px">Dashboard do Professor</h2>
+
+  <!-- Stats resumo -->
+  <div class="dash-stats">
+    <div class="dash-stat"><div class="stat-val" id="dashTotalAlunos">0</div><div class="stat-label">Alunos</div></div>
+    <div class="dash-stat"><div class="stat-val" id="dashTotalRedacoes">0</div><div class="stat-label">Redacoes</div></div>
+    <div class="dash-stat"><div class="stat-val" id="dashMediaGeral">0</div><div class="stat-label">Nota media</div></div>
+    <div class="dash-stat"><div class="stat-val" id="dashPendentes">0</div><div class="stat-label">Aguardando revisao</div></div>
+  </div>
+
+  <!-- Tabela de alunos -->
+  <div class="section-card" style="overflow-x:auto">
+    <h3>Turma 3A — Preparatorio ENEM</h3>
+    <table class="dash-table">
+      <thead>
+        <tr><th>Aluno</th><th>Redacoes</th><th>Nota media</th><th>Evolucao</th></tr>
+      </thead>
+      <tbody id="dashTbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Fila de revisão -->
+  <div class="section-card fila-revisao">
+    <h3>Fila de Revisao (Human-in-the-Loop)</h3>
+    <div id="filaRevisao"></div>
+  </div>
+</div>
+
+</div><!-- /container -->
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   BancaIA — JavaScript (vanilla, zero dependencias)
+   ═══════════════════════════════════════════════════════════════ */
+
+// ── Elementos ──────────────────────────────────────────────────
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+
+const dropzone    = $('#dropzone');
+const fileInput   = $('#fileInput');
+const previewWrap = $('#previewWrap');
+const previewImg  = $('#previewImg');
+const fileName    = $('#fileName');
+const btnEnviar   = $('#btnEnviar');
+const btnNova     = $('#btnNova');
+const procLog     = $('#procLog');
+const apiKeyInput = $('#apiKey');
+
+let imagemBase64   = null;
+let imagemMediaType = null;
+
+// ── Navegacao entre telas ──────────────────────────────────────
+function irPara(id) {
+  $$('.screen').forEach(s => s.classList.remove('active'));
+  $(`#${id}`).classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Upload / drag-and-drop ─────────────────────────────────────
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files.length) handleFile(fileInput.files[0]); });
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    const dataUrl = reader.result;
+    previewImg.src = dataUrl;
+    previewWrap.style.display = 'block';
+    fileName.textContent = file.name;
+    // Extrair base64 e media type
+    imagemMediaType = file.type;
+    imagemBase64 = dataUrl.split(',')[1];
+    btnEnviar.disabled = false;
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Enviar para a Banca ────────────────────────────────────────
+btnEnviar.addEventListener('click', async () => {
+  const apiKey = apiKeyInput.value.trim();
+  if (!apiKey) { alert('Cole sua GEMINI_API_KEY primeiro.'); return; }
+  if (!imagemBase64) return;
+  irPara('tela-processing');
+  await processarRedacao(apiKey);
+});
+
+btnNova.addEventListener('click', () => {
+  imagemBase64 = null; imagemMediaType = null;
+  previewWrap.style.display = 'none';
+  btnEnviar.disabled = true;
+  fileInput.value = '';
+  irPara('tela-upload');
+});
+
+// ── Processing: animacao dos agentes ───────────────────────────
+const AGENTES_ORDEM = ['transcritor','C1','C2','C3','C4','C5','arbitro'];
+
+function resetProcessing() {
+  procLog.innerHTML = '';
+  $$('.agent-card').forEach(c => c.classList.remove('lit'));
+}
+
+function acenderAgente(nome) {
+  const card = $(`.agent-card[data-agent="${nome}"]`);
+  if (card) card.classList.add('lit');
+}
+
+function addLog(msg) {
+  const div = document.createElement('div');
+  div.className = 'entry';
+  div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+  procLog.appendChild(div);
+  procLog.scrollTop = procLog.scrollHeight;
+}
+
+// ── Chamada a API (Google Gemini) ─────────────────────────────
+const MODELO = 'gemini-2.0-flash';
+
+const SYSTEM_PROMPT = `Voce e a BancaIA — uma banca virtual multi-agente que corrige redacoes manuscritas do ENEM.
+
+Pipeline:
+1. Transcreva a imagem da redacao manuscrita (HTR).
+2. Avalie as 5 competencias do ENEM (C1-C5), cada uma de 0 a 200 (multiplos de 40).
+3. Se houver divergencia entre competencias (>40 pontos entre runs), ative o Arbitro.
+4. Gere feedback socratico, plano de estudos e fingerprint de erros.
+
+Responda EXCLUSIVAMENTE com JSON valido (sem markdown, sem texto extra) neste formato:
+{
+  "transcricao": "texto completo transcrito",
+  "confianca_transcricao": 0.87,
+  "tema_detectado": "Tema identificado",
+  "competencias": {
+    "C1": { "nota": 160, "titulo": "Norma culta da lingua portuguesa", "razao": "...", "erros_encontrados": [] },
+    "C2": { "nota": 140, "titulo": "Compreensao da proposta e repertorio sociocultural", "razao": "...", "pontos_fortes": [] },
+    "C3": { "nota": 120, "titulo": "Selecao e organizacao das informacoes", "razao": "...", "estrutura": "..." },
+    "C4": { "nota": 120, "titulo": "Mecanismos linguisticos de coesao", "razao": "...", "conectivos": "..." },
+    "C5": { "nota": 80,  "titulo": "Proposta de intervencao", "razao": "...", "elementos_ausentes": [] }
+  },
+  "nota_total": 620,
+  "divergencia_detectada": false,
+  "motivo_divergencia": "",
+  "parecer_arbitro": "",
+  "feedback_socratico": ["Pergunta 1?", "Pergunta 2?", "Pergunta 3?"],
+  "plano_estudos": ["Acao 1", "Acao 2", "Acao 3"],
+  "fingerprint_erros": ["Padrao 1", "Padrao 2"]
+}`;
+
+async function processarRedacao(apiKey) {
+  resetProcessing();
+  addLog('Iniciando analise da redacao...');
+
+  // Animacao sequencial dos agentes
+  for (let i = 0; i < AGENTES_ORDEM.length; i++) {
+    await sleep(600);
+    acenderAgente(AGENTES_ORDEM[i]);
+    const labels = {
+      transcritor: 'Agente Transcritor ativado — transcrevendo imagem...',
+      C1: 'Agente C1 — avaliando norma culta...',
+      C2: 'Agente C2 — avaliando compreensao da proposta...',
+      C3: 'Agente C3 — avaliando argumentacao...',
+      C4: 'Agente C4 — avaliando coesao...',
+      C5: 'Agente C5 — avaliando proposta de intervencao...',
+      arbitro: 'Agente Arbitro — verificando divergencias...',
+    };
+    addLog(labels[AGENTES_ORDEM[i]]);
+  }
+
+  addLog('Chamando Gemini Flash via API...');
+
+  try {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${apiKey}`;
+
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { inline_data: { mime_type: imagemMediaType, data: imagemBase64 } },
+            { text: SYSTEM_PROMPT + '\n\nTranscreva e avalie esta redacao manuscrita.' },
+          ],
+        }],
+        generationConfig: { maxOutputTokens: 4096 },
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.text();
+      throw new Error(`API ${resp.status}: ${err.substring(0, 200)}`);
+    }
+
+    const data = await resp.json();
+    let texto = '';
+    for (const candidate of (data.candidates || [])) {
+      for (const part of (candidate.content?.parts || [])) {
+        if (part.text) texto += part.text;
+      }
+    }
+
+    // Extrair JSON da resposta (caso venha com markdown)
+    let jsonStr = texto;
+    const match = texto.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) jsonStr = match[1];
+
+    const resultado = JSON.parse(jsonStr.trim());
+    addLog('Parecer recebido! Renderizando resultados...');
+    await sleep(500);
+    renderResultados(resultado);
+
+  } catch (err) {
+    addLog(`ERRO: ${err.message}`);
+    console.error(err);
+  }
+}
+
+// ── Renderizar resultados ──────────────────────────────────────
+function renderResultados(r) {
+  irPara('tela-resultados');
+
+  // Nota total
+  const nota = r.nota_total || 0;
+  const notaEl = $('#notaValor');
+  notaEl.className = 'valor ' + (nota >= 700 ? 'nota-alta' : nota >= 400 ? 'nota-media' : 'nota-baixa');
+  animarNumero(notaEl, nota, 1200);
+  $('#temaDetectado').textContent = r.tema_detectado || '';
+
+  // Barras de competência
+  const compList = $('#compList');
+  compList.innerHTML = '';
+  const COMP_CORES = { C1: '#d4a853', C2: '#60a5fa', C3: '#4ade80', C4: '#c084fc', C5: '#f472b6' };
+  const compIds = ['C1','C2','C3','C4','C5'];
+  const notas = [];
+
+  for (const id of compIds) {
+    const c = (r.competencias || {})[id] || {};
+    const n = c.nota || 0;
+    notas.push(n);
+    const pct = (n / 200) * 100;
+    const cor = COMP_CORES[id];
+
+    const row = document.createElement('div');
+    row.className = 'comp-row';
+    row.innerHTML = `
+      <div class="comp-header">
+        <span class="name">${id}: ${c.titulo || ''}</span>
+        <span class="score" style="color:${cor}">${n}/200</span>
+      </div>
+      <div class="comp-bar"><div class="fill" style="background:${cor}" data-width="${pct}%"></div></div>
+      ${c.razao ? `<div class="comp-reason">${c.razao}</div>` : ''}
+    `;
+    compList.appendChild(row);
+  }
+
+  // Animar barras
+  requestAnimationFrame(() => {
+    compList.querySelectorAll('.fill[data-width]').forEach(el => {
+      el.style.width = el.dataset.width;
+    });
+  });
+
+  // RADAR CHART
+  desenharRadar(notas);
+
+  // Divergência
+  const divAlert = $('#divAlert');
+  if (r.divergencia_detectada) {
+    divAlert.style.display = 'block';
+    $('#divMotivo').textContent = r.motivo_divergencia || '';
+    $('#divParecer').textContent = r.parecer_arbitro || '';
+  } else {
+    divAlert.style.display = 'none';
+  }
+
+  // Transcrição + confiança
+  const conf = r.confianca_transcricao || 0;
+  $('#confiancaFill').style.width = (conf * 100) + '%';
+  $('#confiancaPct').textContent = (conf * 100).toFixed(0) + '%';
+  $('#transcricaoText').textContent = r.transcricao || '(sem transcricao)';
+
+  // Feedback socrático
+  const listaSoc = $('#listaSocratico');
+  listaSoc.innerHTML = '';
+  for (const p of (r.feedback_socratico || [])) {
+    const li = document.createElement('li'); li.textContent = p; listaSoc.appendChild(li);
+  }
+
+  // Plano de estudos
+  const listaPlano = $('#listaPlano');
+  listaPlano.innerHTML = '';
+  for (const p of (r.plano_estudos || [])) {
+    const li = document.createElement('li'); li.textContent = p; listaPlano.appendChild(li);
+  }
+
+  // Fingerprint
+  const chips = $('#fingerprintChips');
+  chips.innerHTML = '';
+  for (const f of (r.fingerprint_erros || [])) {
+    const span = document.createElement('span'); span.className = 'chip'; span.textContent = f; chips.appendChild(span);
+  }
+}
+
+// ── Radar Chart (SVG puro, animado) ────────────────────────────
+function desenharRadar(notas) {
+  // notas = [C1, C2, C3, C4, C5] de 0 a 200
+  const svg = $('#radarSvg');
+  svg.innerHTML = '';
+
+  const CX = 200, CY = 195, R = 140;
+  const N = 5;
+  const LABELS = ['C1','C2','C3','C4','C5'];
+  const LABELS_FULL = [
+    'Norma culta',
+    'Proposta',
+    'Argumentacao',
+    'Coesao',
+    'Intervencao',
+  ];
+  const NIVEIS = [0.2, 0.4, 0.6, 0.8, 1.0]; // 40, 80, 120, 160, 200
+  const angulos = [];
+  for (let i = 0; i < N; i++) {
+    // Começar do topo (-90 graus) e distribuir uniformemente
+    angulos.push(-Math.PI / 2 + (2 * Math.PI * i) / N);
+  }
+
+  function ponto(angulo, raio) {
+    return [CX + raio * Math.cos(angulo), CY + raio * Math.sin(angulo)];
+  }
+
+  // Grupo principal com definições
+  const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+  // Glow filter para os pontos
+  defs.innerHTML = `
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  `;
+  svg.appendChild(defs);
+
+  // Grade concêntrica (pentágonos)
+  for (const nivel of NIVEIS) {
+    const r = R * nivel;
+    let d = '';
+    for (let i = 0; i < N; i++) {
+      const [x, y] = ponto(angulos[i], r);
+      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    }
+    d += 'Z';
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('d', d);
+    path.setAttribute('class', 'radar-grid');
+    svg.appendChild(path);
+  }
+
+  // Eixos (linhas do centro até cada vértice)
+  for (let i = 0; i < N; i++) {
+    const [x, y] = ponto(angulos[i], R);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', CX); line.setAttribute('y1', CY);
+    line.setAttribute('x2', x.toFixed(1)); line.setAttribute('y2', y.toFixed(1));
+    line.setAttribute('class', 'radar-axis');
+    svg.appendChild(line);
+  }
+
+  // Labels das escalas (apenas no eixo do topo — C1)
+  for (const nivel of NIVEIS) {
+    const valor = Math.round(nivel * 200);
+    const [x, y] = ponto(angulos[0], R * nivel);
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', x - 18);
+    text.setAttribute('y', y + 1);
+    text.setAttribute('class', 'radar-label');
+    text.setAttribute('font-size', '9');
+    text.setAttribute('fill', '#706858');
+    text.textContent = valor;
+    svg.appendChild(text);
+  }
+
+  // ── Média da turma (overlay estático, desenhado antes do aluno) ──
+  const MEDIA_TURMA = [130, 120, 110, 115, 100];
+  const mediaNorm = MEDIA_TURMA.map(n => Math.max(0, Math.min(n, 200)) / 200);
+
+  let dMedia = '';
+  for (let i = 0; i < N; i++) {
+    const [x, y] = ponto(angulos[i], R * mediaNorm[i]);
+    dMedia += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }
+  dMedia += 'Z';
+
+  const polyMedia = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  polyMedia.setAttribute('d', dMedia);
+  polyMedia.setAttribute('fill', 'rgba(96,165,250,.10)');
+  polyMedia.setAttribute('stroke', 'var(--blue)');
+  polyMedia.setAttribute('stroke-width', '1.5');
+  polyMedia.setAttribute('stroke-dasharray', '6,4');
+  polyMedia.setAttribute('stroke-linejoin', 'round');
+  svg.appendChild(polyMedia);
+
+  // Dots da média (pequenos, sem glow)
+  for (let i = 0; i < N; i++) {
+    const [x, y] = ponto(angulos[i], R * mediaNorm[i]);
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x.toFixed(1));
+    c.setAttribute('cy', y.toFixed(1));
+    c.setAttribute('r', '2.5');
+    c.setAttribute('fill', 'var(--blue)');
+    svg.appendChild(c);
+  }
+
+  // Polígono dos dados do aluno (começa no centro, anima para os valores reais)
+  const valorNorm = notas.map(n => Math.max(0, Math.min(n, 200)) / 200);
+
+  // Criar polígono inicial (tudo no centro)
+  let dInicio = '';
+  for (let i = 0; i < N; i++) {
+    dInicio += (i === 0 ? 'M' : 'L') + CX + ',' + CY;
+  }
+  dInicio += 'Z';
+
+  let dFinal = '';
+  const pontosFinal = [];
+  for (let i = 0; i < N; i++) {
+    const [x, y] = ponto(angulos[i], R * valorNorm[i]);
+    pontosFinal.push([x, y]);
+    dFinal += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }
+  dFinal += 'Z';
+
+  const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  polygon.setAttribute('d', dInicio);
+  polygon.setAttribute('class', 'radar-polygon');
+  svg.appendChild(polygon);
+
+  // Dots nos vértices (começa invisível)
+  const dots = [];
+  for (let i = 0; i < N; i++) {
+    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    circle.setAttribute('cx', CX);
+    circle.setAttribute('cy', CY);
+    circle.setAttribute('class', 'radar-dot');
+    circle.setAttribute('filter', 'url(#glow)');
+    circle.style.opacity = '0';
+    svg.appendChild(circle);
+    dots.push(circle);
+  }
+
+  // Labels dos eixos (C1, C2 etc.) + subtítulo + valor
+  for (let i = 0; i < N; i++) {
+    const [lx, ly] = ponto(angulos[i], R + 30);
+
+    // Código (C1, C2...)
+    const code = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    code.setAttribute('x', lx.toFixed(1));
+    code.setAttribute('y', (ly - 7).toFixed(1));
+    code.setAttribute('class', 'radar-value-label');
+    code.setAttribute('font-size', '13');
+    code.textContent = `${LABELS[i]}: ${notas[i]}`;
+    svg.appendChild(code);
+
+    // Subtítulo
+    const sub = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    sub.setAttribute('x', lx.toFixed(1));
+    sub.setAttribute('y', (ly + 8).toFixed(1));
+    sub.setAttribute('class', 'radar-label');
+    sub.textContent = LABELS_FULL[i];
+    svg.appendChild(sub);
+  }
+
+  // ── Animação de entrada ──
+  const DURACAO = 800; // ms
+  const inicio = performance.now();
+
+  function animar(agora) {
+    const t = Math.min((agora - inicio) / DURACAO, 1);
+    // Easing: ease-out cubic
+    const e = 1 - Math.pow(1 - t, 3);
+
+    let d = '';
+    for (let i = 0; i < N; i++) {
+      const r = R * valorNorm[i] * e;
+      const [x, y] = ponto(angulos[i], r);
+      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+
+      dots[i].setAttribute('cx', x.toFixed(1));
+      dots[i].setAttribute('cy', y.toFixed(1));
+      dots[i].style.opacity = e;
+    }
+    d += 'Z';
+    polygon.setAttribute('d', d);
+
+    if (t < 1) requestAnimationFrame(animar);
+  }
+
+  // Iniciar animação com pequeno delay para a tela já estar visível
+  setTimeout(() => requestAnimationFrame(animar), 200);
+}
+
+// ── Navegacao header (app vs dashboard) ────────────────────────
+let telaAtualApp = 'tela-upload'; // lembra em qual tela do app o usuario estava
+
+$('#navApp').addEventListener('click', () => {
+  $('#navApp').classList.add('active');
+  $('#navDash').classList.remove('active');
+  $('.api-bar').style.display = 'flex';
+  irPara(telaAtualApp);
+});
+
+$('#navDash').addEventListener('click', () => {
+  $('#navDash').classList.add('active');
+  $('#navApp').classList.remove('active');
+  // Guardar tela atual do app
+  const ativa = document.querySelector('.screen.active');
+  if (ativa && ativa.id !== 'tela-dashboard') telaAtualApp = ativa.id;
+  $('.api-bar').style.display = 'none';
+  irPara('tela-dashboard');
+  renderDashboard();
+});
+
+// ── Dashboard: dados mockados ──────────────────────────────────
+const MOCK_ALUNOS = [
+  {
+    nome: 'Ana Beatriz Silva', redacoes: 6, notas: [480, 520, 540, 580, 620, 660],
+    competencias: [160, 140, 120, 140, 100],
+    fingerprint: ['Virgula antes de sujeito', 'Repertorio limitado a senso comum', 'Proposta sem agente'],
+    divergencia: false,
+  },
+  {
+    nome: 'Carlos Eduardo Santos', redacoes: 5, notas: [320, 380, 400, 440, 500],
+    competencias: [120, 80, 100, 120, 80],
+    fingerprint: ['Fuga parcial ao tema', 'Paragrafos sem topico frasal', 'Ausencia de conectivos'],
+    divergencia: true, motivoDiv: 'C2 com 120 vs 40 entre avaliacoes',
+  },
+  {
+    nome: 'Juliana Mendes Costa', redacoes: 7, notas: [600, 580, 640, 620, 700, 720, 760],
+    competencias: [180, 160, 140, 160, 120],
+    fingerprint: ['Proposta incompleta (falta detalhamento)', 'Crase facultativa incorreta'],
+    divergencia: false,
+  },
+  {
+    nome: 'Pedro Henrique Alves', redacoes: 4, notas: [200, 280, 340, 380],
+    competencias: [80, 80, 80, 80, 60],
+    fingerprint: ['Desvios graves de ortografia', 'Texto dissertativo-narrativo', 'Sem proposta de intervencao', 'Paragrafos de 1 linha'],
+    divergencia: true, motivoDiv: 'C1 com 120 vs 40 — duvida se e norma ou repertorio',
+  },
+  {
+    nome: 'Mariana Ferreira Lima', redacoes: 6, notas: [540, 560, 600, 580, 640, 680],
+    competencias: [140, 140, 140, 120, 140],
+    fingerprint: ['Conectivos repetitivos (alem disso)', 'Proposta generica'],
+    divergencia: false,
+  },
+  {
+    nome: 'Rafael Oliveira Nunes', redacoes: 3, notas: [420, 460, 440],
+    competencias: [100, 80, 100, 100, 60],
+    fingerprint: ['Tangencia ao tema', 'Repertorio nao legitimado', 'Proposta sem meio', 'Regencia verbal'],
+    divergencia: true, motivoDiv: 'C3 com 120 vs 40 entre runs',
+  },
+  {
+    nome: 'Isabela Rodrigues', redacoes: 5, notas: [700, 720, 680, 760, 800],
+    competencias: [180, 160, 160, 160, 140],
+    fingerprint: ['Crase antes de pronome', 'Intervencao sem efeito esperado'],
+    divergencia: false,
+  },
+  {
+    nome: 'Lucas Martins Souza', redacoes: 4, notas: [260, 300, 360, 400],
+    competencias: [80, 80, 80, 80, 80],
+    fingerprint: ['Periodo longo sem pontuacao', 'Copia de texto motivador', 'Ausencia de conclusao', 'Concordancia nominal'],
+    divergencia: false,
+  },
+];
+
+let dashRendered = false;
+
+function renderDashboard() {
+  if (dashRendered) return;
+  dashRendered = true;
+
+  const totalAlunos = MOCK_ALUNOS.length;
+  const totalRedacoes = MOCK_ALUNOS.reduce((s, a) => s + a.redacoes, 0);
+  const mediaGeral = Math.round(
+    MOCK_ALUNOS.reduce((s, a) => s + a.notas[a.notas.length - 1], 0) / totalAlunos
+  );
+  const pendentes = MOCK_ALUNOS.filter(a => a.divergencia).length;
+
+  animarNumero($('#dashTotalAlunos'), totalAlunos, 600);
+  animarNumero($('#dashTotalRedacoes'), totalRedacoes, 600);
+  animarNumero($('#dashMediaGeral'), mediaGeral, 800);
+  animarNumero($('#dashPendentes'), pendentes, 400);
+
+  // Tabela de alunos
+  const tbody = $('#dashTbody');
+  tbody.innerHTML = '';
+
+  MOCK_ALUNOS.forEach((aluno, idx) => {
+    const media = Math.round(aluno.notas.reduce((a, b) => a + b, 0) / aluno.notas.length);
+    const notaCor = media >= 700 ? 'var(--green)' : media >= 400 ? 'var(--amber)' : 'var(--red)';
+    const ultima = aluno.notas[aluno.notas.length - 1];
+    const primeira = aluno.notas[0];
+    const tendencia = ultima > primeira ? '+' + (ultima - primeira) : ultima < primeira ? '' + (ultima - primeira) : '=';
+    const tendenciaCor = ultima >= primeira ? 'var(--green)' : 'var(--red)';
+
+    // Linha principal
+    const tr = document.createElement('tr');
+    tr.dataset.idx = idx;
+    tr.innerHTML = `
+      <td>
+        <div class="aluno-nome">${aluno.nome}</div>
+        ${aluno.divergencia ? '<span class="fila-badge" style="margin-top:4px;display:inline-block">Revisao pendente</span>' : ''}
+      </td>
+      <td>${aluno.redacoes}</td>
+      <td><span class="nota-badge" style="background:${notaCor}20;color:${notaCor}">${media}</span></td>
+      <td>
+        <span class="evolucao-spark" data-notas="${aluno.notas.join(',')}"></span>
+        <span style="font-size:.78rem;color:${tendenciaCor};margin-left:6px;font-weight:600">${tendencia}</span>
+      </td>
+    `;
+    tbody.appendChild(tr);
+
+    // Linha de detalhes (oculta)
+    const trDetail = document.createElement('tr');
+    trDetail.className = 'aluno-detail';
+    trDetail.id = `detail-${idx}`;
+    trDetail.innerHTML = `
+      <td colspan="4">
+        <div class="detail-inner">
+          <div style="display:flex;gap:20px;flex-wrap:wrap">
+            <div style="flex:1;min-width:220px">
+              <strong style="font-size:.85rem;color:var(--fg2)">Fingerprint de erros acumulados</strong>
+              <div class="detail-fingerprints" style="margin-top:8px">
+                ${aluno.fingerprint.map(f => `<span class="chip">${f}</span>`).join('')}
+              </div>
+            </div>
+            <div class="mini-radar-wrap" style="flex:0 0 260px">
+              <svg class="mini-radar" data-comp="${aluno.competencias.join(',')}" viewBox="0 0 260 260"></svg>
+            </div>
+          </div>
+          <div class="detail-redacoes">
+            <strong style="font-size:.85rem;color:var(--fg2)">Historico de notas</strong>
+            ${aluno.notas.map((n, i) => `<div class="rd-row"><span>Redacao ${i + 1}</span><span style="font-weight:600;color:${n >= 700 ? 'var(--green)' : n >= 400 ? 'var(--amber)' : 'var(--red)'}">${n}/1000</span></div>`).join('')}
+          </div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(trDetail);
+
+    // Toggle ao clicar
+    tr.addEventListener('click', () => {
+      const detail = $(`#detail-${idx}`);
+      const isOpen = detail.classList.contains('open');
+      // Fecha todos
+      $$('.aluno-detail').forEach(d => d.classList.remove('open'));
+      if (!isOpen) {
+        detail.classList.add('open');
+        // Desenhar mini radar se ainda nao foi desenhado
+        const miniSvg = detail.querySelector('.mini-radar');
+        if (miniSvg && !miniSvg.dataset.drawn) {
+          miniSvg.dataset.drawn = '1';
+          desenharMiniRadar(miniSvg, aluno.competencias);
+        }
+      }
+    });
+  });
+
+  // Sparklines
+  requestAnimationFrame(() => {
+    $$('.evolucao-spark').forEach(spark => {
+      const notas = spark.dataset.notas.split(',').map(Number);
+      const max = 1000;
+      spark.innerHTML = '';
+      notas.forEach((n, i) => {
+        const bar = document.createElement('div');
+        bar.className = 'bar-spark';
+        const h = Math.max(3, (n / max) * 24);
+        const cor = n >= 700 ? 'var(--green)' : n >= 400 ? 'var(--amber)' : 'var(--red)';
+        bar.style.height = '0px';
+        bar.style.background = cor;
+        spark.appendChild(bar);
+        // Animar com delay escalonado
+        setTimeout(() => { bar.style.height = h + 'px'; }, 100 + i * 80);
+      });
+    });
+  });
+
+  // Fila de revisão
+  const fila = $('#filaRevisao');
+  fila.innerHTML = '';
+  const pendentesAlunos = MOCK_ALUNOS.filter(a => a.divergencia);
+  if (pendentesAlunos.length === 0) {
+    fila.innerHTML = '<p style="color:var(--fg3);font-size:.9rem">Nenhuma redacao aguardando revisao.</p>';
+  } else {
+    pendentesAlunos.forEach(a => {
+      const item = document.createElement('div');
+      item.className = 'fila-item';
+      item.innerHTML = `
+        <span class="fila-aluno">${a.nome}</span>
+        <span class="fila-motivo">${a.motivoDiv || 'Divergencia entre agentes'}</span>
+        <span class="fila-badge">Aguardando</span>
+      `;
+      fila.appendChild(item);
+    });
+  }
+}
+
+// Mini radar para o detalhe do aluno (versao simplificada)
+function desenharMiniRadar(svg, competencias) {
+  const CX = 130, CY = 125, R = 85;
+  const N = 5;
+  const LABELS = ['C1','C2','C3','C4','C5'];
+  const angulos = [];
+  for (let i = 0; i < N; i++) angulos.push(-Math.PI / 2 + (2 * Math.PI * i) / N);
+
+  function pt(ang, r) { return [CX + r * Math.cos(ang), CY + r * Math.sin(ang)]; }
+
+  // Grade
+  for (const nv of [0.5, 1.0]) {
+    let d = '';
+    for (let i = 0; i < N; i++) {
+      const [x, y] = pt(angulos[i], R * nv);
+      d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+    }
+    d += 'Z';
+    const p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', d); p.setAttribute('class', 'radar-grid'); svg.appendChild(p);
+  }
+
+  // Eixos
+  for (let i = 0; i < N; i++) {
+    const [x, y] = pt(angulos[i], R);
+    const l = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    l.setAttribute('x1', CX); l.setAttribute('y1', CY);
+    l.setAttribute('x2', x.toFixed(1)); l.setAttribute('y2', y.toFixed(1));
+    l.setAttribute('class', 'radar-axis'); svg.appendChild(l);
+  }
+
+  // Poligono
+  const norm = competencias.map(n => Math.max(0, Math.min(n, 200)) / 200);
+  let d = '';
+  for (let i = 0; i < N; i++) {
+    const [x, y] = pt(angulos[i], R * norm[i]);
+    d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
+  }
+  d += 'Z';
+  const poly = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  poly.setAttribute('d', d); poly.setAttribute('class', 'radar-polygon'); svg.appendChild(poly);
+
+  // Dots + labels
+  for (let i = 0; i < N; i++) {
+    const [x, y] = pt(angulos[i], R * norm[i]);
+    const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    c.setAttribute('cx', x.toFixed(1)); c.setAttribute('cy', y.toFixed(1));
+    c.setAttribute('r', '3'); c.setAttribute('fill', 'var(--amber)'); svg.appendChild(c);
+
+    const [lx, ly] = pt(angulos[i], R + 18);
+    const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    t.setAttribute('x', lx.toFixed(1)); t.setAttribute('y', ly.toFixed(1));
+    t.setAttribute('class', 'radar-value-label'); t.setAttribute('font-size', '11');
+    t.textContent = `${LABELS[i]}: ${competencias[i]}`;
+    svg.appendChild(t);
+  }
+}
+
+// ── Utilidades ─────────────────────────────────────────────────
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function animarNumero(el, alvo, duracao) {
+  const inicio = performance.now();
+  function step(agora) {
+    const t = Math.min((agora - inicio) / duracao, 1);
+    const e = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(alvo * e);
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+// ── PWA: registrar service worker ──
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+python-telegram-bot==21.6
+google-generativeai
+Pillow
+python-dotenv==1.0.1
