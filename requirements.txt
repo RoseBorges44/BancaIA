@@ -1,0 +1,8 @@
+opencv-python
+numpy
+Pillow
+jiwer
+httpx
+python-dotenv
+google-generativeai
+python-telegram-bot==21.6
